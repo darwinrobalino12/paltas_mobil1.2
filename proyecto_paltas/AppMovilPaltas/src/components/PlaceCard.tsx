@@ -1,59 +1,111 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { theme } from '../theme/tokens';
 
-interface PlaceCardProps {
-  titulo: string;
-  categoria: string;
-  descripcion?: string;
-  onPulsar?: () => void; // Devolución de llamada (callback) hacia afuera
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import { colors, radius, spacing, typography } from '../theme';
+
+export interface PlaceCardProps {
+  title: string;
+  description?: string;
+  imageUrl?: string;
+
+  onPress?: () => void;
+
+  accessibilityLabel?: string;
 }
 
-export const PlaceCard = ({ titulo, categoria, descripcion, onPulsar }: PlaceCardProps) => {
-  return (
-    <TouchableOpacity 
-      style={styles.card} 
-      onPress={onPulsar}
-      accessible={true}
-      accessibilityLabel={`Punto de interés: ${titulo}, categoría ${categoria}`}
-    >
-      <View style={styles.container}>
-        <Text style={styles.category}>{categoria.toUpperCase()}</Text>
-        <Text style={styles.title}>{titulo}</Text>
-        {descripcion ? (
-          <Text style={styles.description} numberOfLines={2}>{descripcion}</Text>
+export const PlaceCard: React.FC<PlaceCardProps> = ({
+  title,
+  description,
+  imageUrl,
+  onPress,
+  accessibilityLabel,
+}) => {
+  const content = (
+    <View style={styles.container}>
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          accessibilityRole="image"
+          accessibilityLabel={`Imagen de ${title}`}
+        />
+      ) : null}
+
+      <View style={styles.content}>
+        <Text style={styles.title}>{title}</Text>
+
+        {description ? (
+          <Text style={styles.description}>
+            {description}
+          </Text>
         ) : null}
       </View>
-    </TouchableOpacity>
+    </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      style={({ pressed }) => [
+        styles.pressable,
+        pressed && styles.pressed,
+      ]}
+    >
+      {content}
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    marginVertical: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  pressable: {
+    borderRadius: radius.lg,
   },
+
+  pressed: {
+    opacity: 0.8,
+  },
+
   container: {
-    flexDirection: 'column',
+    backgroundColor: colors.background,
+
+    borderWidth: 1,
+    borderColor: colors.border,
+
+    borderRadius: radius.lg,
+
+    overflow: 'hidden',
   },
-  category: {
-    fontSize: 12,
-    color: theme.colors.primary,
-    fontWeight: 'bold',
-    marginBottom: 4,
+
+  image: {
+    width: '100%',
+    height: 160,
   },
+
+  content: {
+    padding: spacing.md,
+  },
+
   title: {
-    fontSize: 16,
-    color: theme.colors.text,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    ...typography.heading,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
+
   description: {
-    fontSize: 14,
-    color: '#666666',
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

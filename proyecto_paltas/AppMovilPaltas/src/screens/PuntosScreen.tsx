@@ -1,35 +1,64 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, SafeAreaStorage, Text } from 'react-native';
+
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
 import { API_BASE_URL } from '../config/api';
-import { theme } from '../theme/tokens';
-import { PlaceCard } from '../components/PlaceCard';
-import { AsyncStateView } from '../components/AsyncStateView';
-import { AppButton } from '../components/AppButton';
+
+import {
+  AsyncStateView,
+  PlaceCard,
+} from '../components';
+
+import {
+  colors,
+  spacing,
+  typography,
+} from '../theme';
 
 export const PuntosScreen = () => {
   const [puntos, setPuntos] = useState<any[]>([]);
-  const [status, setStatus] = useState<'loading' | 'error' | 'empty' | 'success'>('loading');
-  const [errorMsg, setErrorMsg] = useState<string>('');
+
+  const [status, setStatus] = useState<
+    'loading' | 'error' | 'empty' | 'success'
+  >('loading');
+
+  const [errorMsg, setErrorMsg] = useState('');
 
   const fetchPuntos = async () => {
     setStatus('loading');
+    setErrorMsg('');
+
     try {
-      // Petición al backend de Node.js/Express
-      const response = await fetch(`${API_BASE_URL}/puntos-rapido`);
+      const response = await fetch(
+        `${API_BASE_URL}/puntos-rapido`,
+      );
+
       if (!response.ok) {
-        throw new Error(`Error en el servidor: Código ${response.status}`);
+        throw new Error(
+          `Código de respuesta ${response.status}`,
+        );
       }
+
       const data = await response.json();
-      
-      // Validamos si la data está vacía
+
       if (!data || data.length === 0) {
+        setPuntos([]);
         setStatus('empty');
-      } else {
-        setPuntos(data);
-        setStatus('success');
+        return;
       }
-    } catch (error: any) {
-      setErrorMsg('Verifique que el backend esté encendido y que el emulador tenga red.');
+
+      setPuntos(data);
+      setStatus('success');
+    } catch (error) {
+      setErrorMsg(
+        'No fue posible cargar los puntos de interés. Verifique la conexión e intente nuevamente.',
+      );
+
       setStatus('error');
     }
   };
@@ -40,20 +69,44 @@ export const PuntosScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Puntos de Interés - Paltas</Text>
-      
-      <AsyncStateView status={status} errorMessage={errorMsg} onRetry={fetchPuntos}>
+      <Text style={styles.headerTitle}>
+        Puntos de Interés - Paltas
+      </Text>
+
+      <AsyncStateView
+        state={status}
+        errorMessage={errorMsg}
+        onRetry={fetchPuntos}
+      >
         <FlatList
           data={puntos}
-          keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-          renderItem={({ item }) => (
-            <PlaceCard 
-              titulo={item.nombre} 
-              categoria={item.categoria?.nombre || 'General'} 
-              descripcion={item.descripcion}
-              onPulsar={() => console.log('Punto seleccionado:', item.nombre)}
-            />
-          )}
+          keyExtractor={(item, index) =>
+            item.id?.toString() ?? index.toString()
+          }
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => {
+            const categoria =
+              item.categoria?.nombre ?? 'General';
+
+            const descripcion = item.descripcion
+              ? `${categoria} · ${item.descripcion}`
+              : categoria;
+
+            return (
+              <PlaceCard
+                title={item.nombre}
+                description={descripcion}
+                imageUrl={item.imagen}
+                onPress={() =>
+                  console.log(
+                    'Punto seleccionado:',
+                    item.nombre,
+                  )
+                }
+                accessibilityLabel={`Ver información de ${item.nombre}`}
+              />
+            );
+          }}
         />
       </AsyncStateView>
     </View>
@@ -63,14 +116,19 @@ export const PuntosScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
+    backgroundColor: colors.background,
+    padding: spacing.md,
   },
+
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
+    ...typography.heading,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
     textAlign: 'center',
+  },
+
+  list: {
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
 });
