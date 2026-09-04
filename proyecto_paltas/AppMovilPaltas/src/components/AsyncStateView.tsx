@@ -1,140 +1,65 @@
 import React from 'react';
-
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { theme } from '../theme'; // <-- CORREGIDO: Ahora apunta al index central del tema
 import { AppButton } from './AppButton';
 
-import {
-  colors,
-  spacing,
-  typography,
-} from '../theme';
-
-export type AsyncState =
-  | 'loading'
-  | 'empty'
-  | 'error'
-  | 'success';
+export type AsyncState = 'loading' | 'error' | 'empty' | 'success';
 
 export interface AsyncStateViewProps {
-  state: AsyncState;
-
-  children?: React.ReactNode;
-
-  emptyTitle?: string;
-  emptyMessage?: string;
-
-  errorTitle?: string;
+  status: AsyncState;
   errorMessage?: string;
-
   onRetry?: () => void;
+  children: React.ReactNode;
 }
 
-export const AsyncStateView: React.FC<
-  AsyncStateViewProps
-> = ({
-  state,
-  children,
-
-  emptyTitle = 'No hay información',
-  emptyMessage = 'No encontramos datos para mostrar.',
-
-  errorTitle = 'Ocurrió un error',
-  errorMessage = 'No fue posible cargar la información.',
-
-  onRetry,
-}) => {
-  if (state === 'loading') {
+export const AsyncStateView = ({ status, errorMessage, onRetry, children }: AsyncStateViewProps) => {
+  if (status === 'loading') {
     return (
-      <View
-        style={styles.container}
-        accessibilityRole="progressbar"
-        accessibilityLabel="Cargando información"
-      >
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
-
-        <Text style={styles.message}>
-          Cargando...
-        </Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.text}>Cargando información del servidor...</Text>
       </View>
     );
   }
 
-  if (state === 'empty') {
+  if (status === 'error') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>
-          {emptyTitle}
-        </Text>
-
-        <Text style={styles.message}>
-          {emptyMessage}
-        </Text>
+      <View style={styles.centered}>
+        <Text style={styles.errorTitle}>¡Ocurrió un problema!</Text>
+        <Text style={styles.text}>{errorMessage || 'No se pudo conectar con el servidor backend.'}</Text>
+        {onRetry && <AppButton title="Reintentar Conexión" onPress={onRetry} />}
       </View>
     );
   }
 
-  if (state === 'error') {
+  if (status === 'empty') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>
-          {errorTitle}
-        </Text>
-
-        <Text style={styles.message}>
-          {errorMessage}
-        </Text>
-
-        {onRetry ? (
-          <AppButton
-            title="Intentar nuevamente"
-            onPress={onRetry}
-            variant="primary"
-            accessibilityLabel="Intentar cargar la información nuevamente"
-          />
-        ) : null}
+      <View style={styles.centered}>
+        <Text style={styles.text}>No se encontraron registros disponibles en este momento.</Text>
       </View>
     );
   }
 
+  // Caso feliz (Success)
   return <>{children}</>;
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-
+  centered: {
+    padding: theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-
-    padding: spacing.lg,
+    flex: 1,
   },
-
-  title: {
-    ...typography.heading,
-
-    color: colors.textPrimary,
-
+  text: {
+    color: theme.colors.text,
+    marginTop: theme.spacing.sm,
     textAlign: 'center',
-
-    marginBottom: spacing.sm,
   },
-
-  message: {
-    ...typography.body,
-
-    color: colors.textSecondary,
-
-    textAlign: 'center',
-
-    marginTop: spacing.sm,
+  errorTitle: {
+    color: theme.colors.error,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
 });

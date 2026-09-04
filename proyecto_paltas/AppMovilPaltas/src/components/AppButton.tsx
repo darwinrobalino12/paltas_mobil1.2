@@ -1,122 +1,43 @@
-
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-} from 'react-native';
-
-import { colors, radius, spacing, typography } from '../theme';
-
-export type ButtonVariant = 'primary' | 'secondary' | 'danger';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 export interface AppButtonProps {
   title: string;
   onPress: () => void;
-
-  variant?: ButtonVariant;
-  loading?: boolean;
   disabled?: boolean;
-
-  accessibilityLabel?: string;
-  testID?: string;
 }
 
-export const AppButton: React.FC<AppButtonProps> = ({
-  title,
-  onPress,
-  variant = 'primary',
-  loading = false,
-  disabled = false,
-  accessibilityLabel,
-  testID,
-}) => {
-  const isDisabled = disabled || loading;
-
-  const getBackgroundColor = () => {
-    if (isDisabled) {
-      return colors.border;
-    }
-
-    if (variant === 'secondary') {
-      return colors.surface;
-    }
-
-    if (variant === 'danger') {
-      return colors.error;
-    }
-
-    return colors.primary;
-  };
-
-  const getTextColor = () => {
-    if (isDisabled) {
-      return colors.textDisabled;
-    }
-
-    if (variant === 'secondary') {
-      return colors.primary;
-    }
-
-    return colors.background;
-  };
-
+export const AppButton = ({ title, onPress, disabled = false }: AppButtonProps) => {
   return (
-    <Pressable
-      testID={testID}
+    <TouchableOpacity 
+      style={[styles.button, disabled && styles.disabled]} 
       onPress={onPress}
-      disabled={isDisabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
-      accessibilityState={{
-        disabled: isDisabled,
-        busy: loading,
-      }}
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: getBackgroundColor(),
-          opacity: pressed && !isDisabled ? 0.85 : 1,
-        },
-      ]}
+      disabled={disabled}
+      accessible={true}
+      accessibilityLabel={title}
     >
-      {loading ? (
-        <ActivityIndicator
-          accessibilityLabel="Cargando"
-          color={getTextColor()}
-        />
-      ) : (
-        <Text
-          style={[
-            styles.text,
-            {
-              color: getTextColor(),
-            },
-          ]}
-        >
-          {title}
-        </Text>
-      )}
-    </Pressable>
+      <Text style={styles.text}>{title}</Text>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    minWidth: 48,
-
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-
-    borderRadius: radius.md,
-
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginVertical: spacing.sm,
   },
-
+  disabled: {
+    opacity: 0.5,
+  },
   text: {
-    ...typography.button,
-  },
+    color: colors.surface,
+    fontWeight: typography.fontWeight.bold as '700',
+    fontSize: typography.fontSize.md,
+  }
 });

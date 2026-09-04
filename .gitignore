@@ -2,6 +2,14 @@
 #
 .DS_Store
 
+# Claude Code / repos git anidados desactivados
+.claude/
+.git_disabled/
+scratch_*
+
+# Variables de entorno (usar .env.example como plantilla)
+.env
+
 # Xcode
 #
 build/

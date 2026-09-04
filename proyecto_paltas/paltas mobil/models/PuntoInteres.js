@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Categoria = require('./Categoria');
+const Categoria = require('./categoria');
 
 // Definimos la tabla PuntoInteres
 const PuntoInteres = sequelize.define('PuntoInteres', {
@@ -11,8 +11,8 @@ const PuntoInteres = sequelize.define('PuntoInteres', {
   descripcion: {
     type: DataTypes.TEXT
   }
-}, { 
-  timestamps: false 
+}, {
+  timestamps: true
 });
 
 // DEFINIMOS LA RELACIÓN:

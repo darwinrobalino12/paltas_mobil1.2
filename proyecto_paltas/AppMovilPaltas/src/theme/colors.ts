@@ -1,23 +1,31 @@
-export const primitiveColors = {
-  green600: '#1B5E20',
-  grey100: '#F5F5F5',
-  grey600: '#757575',
-  grey900: '#212121',
-  red700: '#C62828',
-  white: '#FFFFFF',
-} as const;
-
 export const colors = {
-  primary: primitiveColors.green600,
+  // Verde aguacate - color principal de la marca
+  primary: '#4C7A34',
+  primaryDark: '#3A5E28',
+  primaryLight: '#F0F5EC',
 
-  background: primitiveColors.grey100,
-  surface: primitiveColors.white,
+  // Superficies
+  surface: '#FFFFFF',
+  background: '#F7FAF4',
+  surfaceVariant: '#E9F0E3',
 
-  textPrimary: primitiveColors.grey900,
-  textSecondary: primitiveColors.grey600,
-  textDisabled: primitiveColors.grey600,
+  // Texto
+  text: '#1F2A1C',
+  textSecondary: '#5C6B54',
+  textDisabled: '#A8B5A0',
 
-  error: primitiveColors.red700,
+  // Estados
+  error: '#C0392B',
+  warning: '#E67E22',
+  success: '#27AE60',
+  info: '#2980B9',
 
-  border: primitiveColors.grey600,
-} as const;
+  // Bordes y separadores
+  border: '#DCE5D5',
+  borderLight: '#EBF1E7',
+
+  // Overlays
+  overlay: 'rgba(31, 42, 28, 0.5)',
+};
+
+export type AppColors = typeof colors;

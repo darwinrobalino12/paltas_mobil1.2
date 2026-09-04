@@ -1,37 +1,23 @@
 export const typography = {
-  title: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    lineHeight: 34,
+  fontFamily: {
+    regular: 'System',
+    medium: 'System',
+    bold: 'System',
   },
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 22,
+    xxl: 28,
+  },
+  fontWeight: {
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+  },
+} as const;
 
-  heading: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    lineHeight: 28,
-  },
-
-  body: {
-    fontSize: 16,
-    fontWeight: '400' as const,
-    lineHeight: 24,
-  },
-
-  bodyMedium: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    lineHeight: 24,
-  },
-
-  caption: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    lineHeight: 20,
-  },
-
-  button: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    lineHeight: 20,
-  },
-};
+export type AppTypography = typeof typography;

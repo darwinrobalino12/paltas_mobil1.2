@@ -1,2 +1,16 @@
-paltas mobil/node_modules/
 node_modules/
+.env
+
+# Artefactos de build de React Native (AppMovilPaltas/)
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.gradle/
+ios/Pods/
+ios/build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.watchmanconfig.local

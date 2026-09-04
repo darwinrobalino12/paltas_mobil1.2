@@ -1,10 +1,16 @@
+require('dotenv').config();
+
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { createClient } = require('redis');
 const Queue = require('bull');
 const sequelize = require('./config/database');
-const Categoria = require('./models/Categoria');
+const Categoria = require('./models/categoria');
 const PuntoInteres = require('./models/PuntoInteres');
-const Usuario = require('./models/Usuario'); 
+const Usuario = require('./models/Usuario');
+const crearRouterAuth = require('./routes/auth');
+const crearRouterPuntos = require('./routes/puntos');
+const crearRouterCategorias = require('./routes/categorias');
 
 const app = express();
 app.use(express.json());
@@ -12,6 +18,15 @@ app.use(express.json());
 // Configuración del cliente de Redis para Caché
 const redisClient = createClient({ url: 'redis://localhost:6379' });
 redisClient.on('error', (err) => console.error('❌ Error en Redis Client', err));
+
+// ==========================================
+// AUTENTICACIÓN Y ENDPOINTS DEL DOMINIO (JWT)
+// Conviven con las rutas demo de abajo: usan el mismo prefijo /api
+// pero verbos/paths distintos, sin pisar la demo de sesión en Redis.
+// ==========================================
+app.use('/api', crearRouterAuth({ Usuario, redisClient }));
+app.use('/api', crearRouterPuntos({ PuntoInteres, Categoria, redisClient }));
+app.use('/api', crearRouterCategorias({ Categoria }));
 
 // Configuración de la Cola de Trabajo con Redis
 const reporteCola = new Queue('procesar-reporte', 'redis://127.0.0.1:6379');
@@ -75,8 +90,10 @@ async function sembrarDatos() {
     await PuntoInteres.create({ nombre: 'Restaurante El Paltense', descripcion: 'Comida típica de la región.', categoriaId: cat2.id });
     await PuntoInteres.create({ nombre: 'Mirador El Shiriculapo', descripcion: 'Vista panorámica impresionante.', categoriaId: cat3.id });
 
-    await Usuario.create({ username: 'petri', password: 'password123' });
-    console.log('🌱 Datos de prueba e inserción de usuario listos.');
+    const passwordHasheada = await bcrypt.hash('password123', 10);
+    await Usuario.create({ username: 'petri', password: passwordHasheada, rol: 'admin' });
+    await Usuario.create({ username: 'usuario_demo', password: passwordHasheada, rol: 'user' });
+    console.log('🌱 Datos de prueba e inserción de usuarios listos (petri=admin, usuario_demo=user).');
   }
 }
 
@@ -84,7 +101,7 @@ async function sembrarDatos() {
 // RUTAS DE LA API
 // ==========================================
 
-app.get('/login', async (req, res) => {
+app.get('/api/login', async (req, res) => {
   const username = req.query.username || 'petri';
   const password = req.query.password || 'password123';
 
@@ -106,7 +123,7 @@ app.get('/login', async (req, res) => {
   });
 });
 
-app.get('/puntos-lento', async (req, res) => {
+app.get('/api/puntos-lento', async (req, res) => {
   console.time('⏱️ Tiempo Ruta N+1');
   const puntos = await PuntoInteres.findAll();
   const resultado = [];
@@ -118,7 +135,7 @@ app.get('/puntos-lento', async (req, res) => {
   res.json(resultado);
 });
 
-app.get('/puntos-rapido', async (req, res) => {
+app.get('/api/puntos-rapido', async (req, res) => {
   console.time('⚡ Tiempo Ruta Optimizada');
   const puntos = await PuntoInteres.findAll({
     include: { model: Categoria, as: 'categoria', attributes: ['nombre'] }
@@ -131,7 +148,7 @@ app.get('/puntos-rapido', async (req, res) => {
   res.json(puntos);
 });
 
-app.get('/puntos-cache', async (req, res) => {
+app.get('/api/puntos-cache', async (req, res) => {
   const cacheKey = 'puntos:all';
   try {
     const cachedData = await redisClient.get(cacheKey);
@@ -153,13 +170,13 @@ app.get('/puntos-cache', async (req, res) => {
   }
 });
 
-app.get('/reporte', async (req, res) => {
+app.get('/api/reporte', async (req, res) => {
   const usuarioDestino = req.query.usuario || 'Petri';
   const trabajo = await reporteCola.add({ usuario: usuarioDestino });
   res.json({ mensaje: "Tu solicitud de reporte está siendo procesada en segundo plano por el Worker.", trabajoId: trabajo.id, usuario: usuarioDestino });
 });
 
-app.get('/perfil-seguro', verificarAutenticacion, (req, res) => {
+app.get('/api/perfil-seguro', verificarAutenticacion, (req, res) => {
   res.json({
     mensaje: `Bienvenido a tu perfil protegido, ${req.usuario.username}.`,
     datosPrivados: "Información sensible del proyecto Paltas resguardada con éxito."
@@ -186,7 +203,9 @@ async function iniciarServidor() {
     await redisClient.connect();
     console.log('🛑 Conectado a Redis en Docker con éxito.');
 
-    await sequelize.sync({ force: false });
+    // alter: true agrega columnas nuevas (ej. Usuario.rol, timestamps de PuntoInteres)
+    // a tablas ya existentes sin destruir los datos que ya tengan.
+    await sequelize.sync({ alter: true });
     console.log('✅ Conectado a MySQL en Docker con éxito.');
     
     await sembrarDatos();

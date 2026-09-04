@@ -8,12 +8,10 @@ import {
   View,
 } from 'react-native';
 
-import {
-  colors,
-  radius,
-  spacing,
-  typography,
-} from '../theme';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
+import { radius } from '../theme/radius';
 
 export interface AppInputProps
   extends Omit<TextInputProps, 'style'> {
@@ -73,8 +71,9 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium as '500',
+    color: colors.text,
     marginBottom: spacing.sm,
   },
 
@@ -87,12 +86,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
 
     backgroundColor: colors.background,
-    color: colors.textPrimary,
+    color: colors.text,
 
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
 
-    ...typography.body,
+    fontSize: typography.fontSize.md,
   },
 
   inputError: {
@@ -100,13 +99,13 @@ const styles = StyleSheet.create({
   },
 
   helper: {
-    ...typography.caption,
+    fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
 
   error: {
-    ...typography.caption,
+    fontSize: typography.fontSize.xs,
     color: colors.error,
     marginTop: spacing.xs,
   },

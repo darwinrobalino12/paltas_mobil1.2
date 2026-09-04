@@ -1,111 +1,59 @@
 import React from 'react';
-
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
-import { colors, radius, spacing, typography } from '../theme';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { theme } from '../theme';
 
 export interface PlaceCardProps {
-  title: string;
-  description?: string;
-  imageUrl?: string;
-
-  onPress?: () => void;
-
-  accessibilityLabel?: string;
+  titulo: string;
+  categoria: string;
+  descripcion?: string;
+  onPulsar?: () => void; // Devolución de llamada (callback) hacia afuera
 }
 
-export const PlaceCard: React.FC<PlaceCardProps> = ({
-  title,
-  description,
-  imageUrl,
-  onPress,
-  accessibilityLabel,
-}) => {
-  const content = (
-    <View style={styles.container}>
-      {imageUrl ? (
-        <Image
-          source={{ uri: imageUrl }}
-          style={styles.image}
-          accessibilityRole="image"
-          accessibilityLabel={`Imagen de ${title}`}
-        />
-      ) : null}
-
-      <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-
-        {description ? (
-          <Text style={styles.description}>
-            {description}
-          </Text>
+export const PlaceCard = ({ titulo, categoria, descripcion, onPulsar }: PlaceCardProps) => {
+  return (
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={onPulsar}
+      accessible={true}
+      accessibilityLabel={`Punto de interés: ${titulo}, categoría ${categoria}`}
+    >
+      <View style={styles.container}>
+        <Text style={styles.category}>{categoria.toUpperCase()}</Text>
+        <Text style={styles.title}>{titulo}</Text>
+        {descripcion ? (
+          <Text style={styles.description} numberOfLines={2}>{descripcion}</Text>
         ) : null}
       </View>
-    </View>
-  );
-
-  if (!onPress) {
-    return content;
-  }
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
-      style={({ pressed }) => [
-        styles.pressable,
-        pressed && styles.pressed,
-      ]}
-    >
-      {content}
-    </Pressable>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  pressable: {
-    borderRadius: radius.lg,
-  },
-
-  pressed: {
-    opacity: 0.8,
-  },
-
-  container: {
-    backgroundColor: colors.background,
-
+  card: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    marginVertical: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-
-    borderRadius: radius.lg,
-
-    overflow: 'hidden',
+    borderColor: '#E0E0E0',
   },
-
-  image: {
-    width: '100%',
-    height: 160,
+  container: {
+    flexDirection: 'column',
   },
-
-  content: {
-    padding: spacing.md,
+  category: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-
   title: {
-    ...typography.heading,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    fontSize: 16,
+    color: theme.colors.text,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-
   description: {
-    ...typography.body,
-    color: colors.textSecondary,
+    fontSize: 14,
+    color: '#666666',
   },
 });
