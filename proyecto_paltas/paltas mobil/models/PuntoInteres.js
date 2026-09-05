@@ -10,6 +10,18 @@ const PuntoInteres = sequelize.define('PuntoInteres', {
   },
   descripcion: {
     type: DataTypes.TEXT
+  },
+  latitud: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  longitud: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  imagenUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   timestamps: true

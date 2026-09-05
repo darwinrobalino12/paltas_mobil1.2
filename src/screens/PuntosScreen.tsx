@@ -76,6 +76,7 @@ export const PuntosScreen = ({ navigation }: Props) => {
               titulo={item.nombre}
               categoria={item.categoriaNombre || 'General'}
               descripcion={item.descripcion || undefined}
+              imagenUrl={item.imagenUrl}
               onPulsar={() => navigation.navigate('DetallePunto', { id: item.id })}
             />
           )}

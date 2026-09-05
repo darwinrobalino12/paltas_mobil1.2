@@ -1,6 +1,9 @@
 node_modules/
 .env
 
+# Fotos subidas por los usuarios (contenido de prueba, no versionar)
+paltas mobil/uploads/
+
 # Artefactos de build de React Native (AppMovilPaltas/)
 android/build/
 android/app/build/

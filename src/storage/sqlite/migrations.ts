@@ -38,4 +38,13 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // Agrega foto y coordenadas GPS al esquema de lectura de puntos_interes.
+    version: 2,
+    up: [
+      'ALTER TABLE puntos_interes ADD COLUMN latitud REAL',
+      'ALTER TABLE puntos_interes ADD COLUMN longitud REAL',
+      'ALTER TABLE puntos_interes ADD COLUMN imagen_url TEXT',
+    ],
+  },
 ];

@@ -42,10 +42,13 @@ function construirHeaders(
   auth: boolean,
   accessToken: string | null,
   idempotencyKey: string | undefined,
-  extra: HeadersInit_ | undefined
+  extra: HeadersInit_ | undefined,
+  esFormData: boolean
 ): HeadersInit_ {
   return {
-    'Content-Type': 'application/json',
+    // Con FormData, fetch/RN arma el boundary multipart solo — forzar
+    // "application/json" aquí rompería la subida de archivos.
+    ...(esFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(extra || {}),
     ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
@@ -57,11 +60,12 @@ function construirHeaders(
 // tal cual — no es un problema de sesión, lo decide la pantalla que llama.
 export async function apiFetch(path: string, options: RequestOptions = {}): Promise<Response> {
   const { auth = false, idempotencyKey, headers, ...rest } = options;
+  const esFormData = typeof FormData !== 'undefined' && rest.body instanceof FormData;
 
   const { accessToken } = getSession();
   let response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
-    headers: construirHeaders(auth, accessToken, idempotencyKey, headers),
+    headers: construirHeaders(auth, accessToken, idempotencyKey, headers, esFormData),
   });
 
   if (auth && response.status === 401) {
@@ -69,7 +73,7 @@ export async function apiFetch(path: string, options: RequestOptions = {}): Prom
     if (nuevoAccessToken) {
       response = await fetch(`${API_BASE_URL}${path}`, {
         ...rest,
-        headers: construirHeaders(auth, nuevoAccessToken, idempotencyKey, headers),
+        headers: construirHeaders(auth, nuevoAccessToken, idempotencyKey, headers, esFormData),
       });
     }
   }

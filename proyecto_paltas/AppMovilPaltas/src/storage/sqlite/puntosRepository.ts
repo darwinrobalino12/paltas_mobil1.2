@@ -11,6 +11,9 @@ export interface PuntoLocal {
   categoriaNombre: string | null;
   serverUpdatedAt: string | null;
   pendingSync: boolean;
+  latitud: number | null;
+  longitud: number | null;
+  imagenUrl: string | null;
 }
 
 function mapRow(row: Record<string, unknown>): PuntoLocal {
@@ -22,6 +25,9 @@ function mapRow(row: Record<string, unknown>): PuntoLocal {
     categoriaNombre: row.categoria_nombre != null ? String(row.categoria_nombre) : null,
     serverUpdatedAt: row.server_updated_at != null ? String(row.server_updated_at) : null,
     pendingSync: Number(row.pending_sync) === 1,
+    latitud: row.latitud != null ? Number(row.latitud) : null,
+    longitud: row.longitud != null ? Number(row.longitud) : null,
+    imagenUrl: row.imagen_url != null ? String(row.imagen_url) : null,
   };
 }
 
@@ -40,8 +46,8 @@ export async function obtenerPuntoLocalPorId(id: string): Promise<PuntoLocal | n
 async function guardarPuntoEnTx(tx: Transaction, punto: PuntoInteresApi, ahora: string): Promise<void> {
   await tx.execute(
     `INSERT INTO puntos_interes
-      (id, nombre, descripcion, categoria_id, categoria_nombre, server_updated_at, local_updated_at, pending_sync, deleted_locally)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+      (id, nombre, descripcion, categoria_id, categoria_nombre, server_updated_at, local_updated_at, pending_sync, deleted_locally, latitud, longitud, imagen_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        nombre = excluded.nombre,
        descripcion = excluded.descripcion,
@@ -49,7 +55,10 @@ async function guardarPuntoEnTx(tx: Transaction, punto: PuntoInteresApi, ahora: 
        categoria_nombre = excluded.categoria_nombre,
        server_updated_at = excluded.server_updated_at,
        local_updated_at = excluded.local_updated_at,
-       pending_sync = 0`,
+       pending_sync = 0,
+       latitud = excluded.latitud,
+       longitud = excluded.longitud,
+       imagen_url = excluded.imagen_url`,
     [
       String(punto.id),
       punto.nombre,
@@ -58,6 +67,9 @@ async function guardarPuntoEnTx(tx: Transaction, punto: PuntoInteresApi, ahora: 
       punto.categoria?.nombre ?? null,
       punto.updatedAt ?? null,
       ahora,
+      punto.latitud ?? null,
+      punto.longitud ?? null,
+      punto.imagenUrl ?? null,
     ]
   );
 }
@@ -117,14 +129,25 @@ export async function insertarPuntoPendiente(punto: {
   descripcion?: string;
   categoriaId: number;
   categoriaNombre: string;
+  latitud?: number;
+  longitud?: number;
 }): Promise<void> {
   const db = await getDb();
   const ahora = new Date().toISOString();
   await db.execute(
     `INSERT INTO puntos_interes
-      (id, nombre, descripcion, categoria_id, categoria_nombre, server_updated_at, local_updated_at, pending_sync, deleted_locally)
-     VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 0)`,
-    [punto.localId, punto.nombre, punto.descripcion ?? null, punto.categoriaId, punto.categoriaNombre, ahora]
+      (id, nombre, descripcion, categoria_id, categoria_nombre, server_updated_at, local_updated_at, pending_sync, deleted_locally, latitud, longitud, imagen_url)
+     VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 0, ?, ?, NULL)`,
+    [
+      punto.localId,
+      punto.nombre,
+      punto.descripcion ?? null,
+      punto.categoriaId,
+      punto.categoriaNombre,
+      ahora,
+      punto.latitud ?? null,
+      punto.longitud ?? null,
+    ]
   );
 }
 

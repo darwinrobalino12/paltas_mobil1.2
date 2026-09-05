@@ -1,9 +1,39 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { verificarJWT, requiereRol } = require('../middlewares/auth');
 
 const IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60; // 24h
 
-function validarPunto({ nombre, descripcion, categoriaId }, categoriaExiste) {
+const CARPETA_UPLOADS = path.join(__dirname, '..', 'uploads', 'puntos');
+fs.mkdirSync(CARPETA_UPLOADS, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, CARPETA_UPLOADS),
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname) || '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    cb(null, /^image\//.test(file.mimetype));
+  },
+});
+
+function aNumeroOpcional(valor) {
+  if (valor === undefined || valor === null || valor === '') {
+    return undefined;
+  }
+  const numero = Number(valor);
+  return Number.isNaN(numero) ? null : numero;
+}
+
+function validarPunto({ nombre, descripcion, categoriaId, latitud, longitud }, categoriaExiste) {
   const errors = [];
   const nombreTexto = typeof nombre === 'string' ? nombre.trim() : '';
 
@@ -21,6 +51,14 @@ function validarPunto({ nombre, descripcion, categoriaId }, categoriaExiste) {
     errors.push({ field: 'categoriaId', message: 'Debes seleccionar una categoría.' });
   } else if (!categoriaExiste) {
     errors.push({ field: 'categoriaId', message: 'La categoría seleccionada no existe.' });
+  }
+
+  if (latitud !== undefined && (latitud === null || latitud < -90 || latitud > 90)) {
+    errors.push({ field: 'latitud', message: 'La latitud debe ser un número entre -90 y 90.' });
+  }
+
+  if (longitud !== undefined && (longitud === null || longitud < -180 || longitud > 180)) {
+    errors.push({ field: 'longitud', message: 'La longitud debe ser un número entre -180 y 180.' });
   }
 
   return errors;
@@ -43,11 +81,17 @@ module.exports = function crearRouterPuntos({ PuntoInteres, Categoria, redisClie
     res.json(punto);
   });
 
-  router.post('/puntos-interes', verificarJWT, requiereRol('admin'), async (req, res) => {
-    const { nombre, descripcion, categoriaId } = req.body || {};
+  // multipart/form-data: campos de texto (nombre, descripcion, categoriaId, latitud,
+  // longitud) + archivo opcional "imagen". La foto siempre viaja en línea (no pasa
+  // por la cola offline), por eso este endpoint no necesita lógica adicional para eso.
+  router.post('/puntos-interes', verificarJWT, requiereRol('admin'), upload.single('imagen'), async (req, res) => {
+    const { nombre, descripcion, categoriaId: categoriaIdRaw } = req.body || {};
+    const categoriaId = aNumeroOpcional(categoriaIdRaw);
+    const latitud = aNumeroOpcional(req.body?.latitud);
+    const longitud = aNumeroOpcional(req.body?.longitud);
 
     const categoriaExiste = categoriaId ? Boolean(await Categoria.findByPk(categoriaId)) : false;
-    const errors = validarPunto({ nombre, descripcion, categoriaId }, categoriaExiste);
+    const errors = validarPunto({ nombre, descripcion, categoriaId, latitud, longitud }, categoriaExiste);
 
     if (errors.length > 0) {
       return res.status(422).json({ errors });
@@ -63,10 +107,15 @@ module.exports = function crearRouterPuntos({ PuntoInteres, Categoria, redisClie
       }
     }
 
+    const imagenUrl = req.file ? `/uploads/puntos/${req.file.filename}` : null;
+
     const nuevoPunto = await PuntoInteres.create({
       nombre: nombre.trim(),
       descripcion: descripcion || null,
       categoriaId,
+      latitud: latitud ?? null,
+      longitud: longitud ?? null,
+      imagenUrl,
     });
 
     const puntoConCategoria = await PuntoInteres.findByPk(nuevoPunto.id, {

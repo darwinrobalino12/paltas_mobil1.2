@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Text, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CatalogoStackParamList } from '../navigation/types';
 import { theme } from '../theme';
@@ -7,6 +7,7 @@ import { AsyncStateView } from '../components/AsyncStateView';
 import { RemoteState, remoteLoading, remoteSuccess, remoteError } from '../utils/remoteState';
 import { obtenerPuntoLocalPorId, PuntoLocal } from '../storage/sqlite/puntosRepository';
 import { obtenerPuntoPorId } from '../api/puntos';
+import { API_HOST } from '../config/api';
 
 type Props = NativeStackScreenProps<CatalogoStackParamList, 'DetallePunto'>;
 
@@ -45,6 +46,9 @@ export const DetallePuntoScreen = ({ route }: Props) => {
           categoriaNombre: remoto.categoria?.nombre ?? null,
           serverUpdatedAt: remoto.updatedAt ?? null,
           pendingSync: false,
+          latitud: remoto.latitud ?? null,
+          longitud: remoto.longitud ?? null,
+          imagenUrl: remoto.imagenUrl ?? null,
         })
       );
     } catch {
@@ -59,14 +63,26 @@ export const DetallePuntoScreen = ({ route }: Props) => {
     cargar();
   }, [cargar]);
 
+  const verEnElMapa = (latitud: number, longitud: number) => {
+    Linking.openURL(`geo:${latitud},${longitud}?q=${latitud},${longitud}`);
+  };
+
   return (
     <View style={styles.container}>
       <AsyncStateView {...estadoAVista(estado)} onRetry={cargar}>
         {estado.status === 'success' && (
           <ScrollView>
+            {estado.data.imagenUrl && (
+              <Image source={{ uri: `${API_HOST}${estado.data.imagenUrl}` }} style={styles.imagen} />
+            )}
             <Text style={styles.categoria}>{(estado.data.categoriaNombre || 'General').toUpperCase()}</Text>
             <Text style={styles.titulo}>{estado.data.nombre}</Text>
             {estado.data.descripcion ? <Text style={styles.descripcion}>{estado.data.descripcion}</Text> : null}
+            {estado.data.latitud != null && estado.data.longitud != null && (
+              <TouchableOpacity onPress={() => verEnElMapa(estado.data.latitud as number, estado.data.longitud as number)}>
+                <Text style={styles.enlaceMapa}>📍 Ver en el mapa</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         )}
       </AsyncStateView>
@@ -76,7 +92,15 @@ export const DetallePuntoScreen = ({ route }: Props) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
+  imagen: {
+    width: '100%',
+    height: 220,
+    borderRadius: 8,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+  },
   categoria: { fontSize: 12, color: theme.colors.primary, fontWeight: 'bold', marginBottom: theme.spacing.xs },
   titulo: { fontSize: 22, fontWeight: 'bold', color: theme.colors.text, marginBottom: theme.spacing.sm },
   descripcion: { fontSize: 16, color: theme.colors.textSecondary },
+  enlaceMapa: { fontSize: 16, color: theme.colors.primary, fontWeight: 'bold', marginTop: theme.spacing.md },
 });

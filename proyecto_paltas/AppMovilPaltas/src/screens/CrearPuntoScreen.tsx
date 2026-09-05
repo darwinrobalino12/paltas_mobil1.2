@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TextInput, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TextInput, ScrollView, Image, Alert, PermissionsAndroid, Platform } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { launchCamera, launchImageLibrary, Asset } from 'react-native-image-picker';
+import Geolocation from '@react-native-community/geolocation';
 import type { CatalogoStackParamList } from '../navigation/types';
 import { theme } from '../theme';
 import { AppButton } from '../components/AppButton';
 import { RequireAuth } from '../navigation/RequireAuth';
-import { crearPunto } from '../api/puntos';
+import { crearPunto, crearPuntoConFoto } from '../api/puntos';
 import { ApiError } from '../api/client';
 import { listarCategoriasLocales, sincronizarCategorias, CategoriaLocal } from '../storage/sqlite/categoriasRepository';
 import { insertarPuntoPendiente } from '../storage/sqlite/puntosRepository';
@@ -23,6 +25,24 @@ interface FormValues {
   categoriaId: string;
 }
 
+interface Ubicacion {
+  latitud: number;
+  longitud: number;
+}
+
+async function pedirPermisoUbicacion(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+  const resultado = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
+    title: 'Permiso de ubicación',
+    message: 'La app necesita acceso a tu ubicación para registrar las coordenadas del punto de interés.',
+    buttonPositive: 'Permitir',
+    buttonNegative: 'Cancelar',
+  });
+  return resultado === PermissionsAndroid.RESULTS.GRANTED;
+}
+
 function CrearPuntoForm({ navigation }: Props) {
   const {
     control,
@@ -34,6 +54,9 @@ function CrearPuntoForm({ navigation }: Props) {
   const [categorias, setCategorias] = useState<CategoriaLocal[]>([]);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
+  const [foto, setFoto] = useState<Asset | null>(null);
+  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
+  const [buscandoUbicacion, setBuscandoUbicacion] = useState(false);
   const { isOnline, refrescarContador } = useSync();
 
   useEffect(() => {
@@ -42,6 +65,49 @@ function CrearPuntoForm({ navigation }: Props) {
       setCategorias(await sincronizarCategorias());
     })();
   }, []);
+
+  const elegirFoto = () => {
+    Alert.alert('Agregar foto', '¿Cómo quieres agregar la foto?', [
+      {
+        text: 'Tomar foto',
+        onPress: async () => {
+          const resultado = await launchCamera({ mediaType: 'photo', quality: 0.7, saveToPhotos: true });
+          const asset = resultado.assets?.[0];
+          if (asset?.uri) setFoto(asset);
+        },
+      },
+      {
+        text: 'Elegir de galería',
+        onPress: async () => {
+          const resultado = await launchImageLibrary({ mediaType: 'photo', quality: 0.7 });
+          const asset = resultado.assets?.[0];
+          if (asset?.uri) setFoto(asset);
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const obtenerUbicacionActual = async () => {
+    const permitido = await pedirPermisoUbicacion();
+    if (!permitido) {
+      setMensajeError('Permiso de ubicación denegado. No se pudo obtener tu posición.');
+      return;
+    }
+    setBuscandoUbicacion(true);
+    setMensajeError(null);
+    Geolocation.getCurrentPosition(
+      posicion => {
+        setUbicacion({ latitud: posicion.coords.latitude, longitud: posicion.coords.longitude });
+        setBuscandoUbicacion(false);
+      },
+      () => {
+        setMensajeError('No se pudo obtener tu ubicación. Intenta de nuevo.');
+        setBuscandoUbicacion(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  };
 
   const onSubmit = async (values: FormValues) => {
     setMensajeExito(null);
@@ -53,11 +119,13 @@ function CrearPuntoForm({ navigation }: Props) {
       nombre: values.nombre.trim(),
       descripcion: values.descripcion.trim() || undefined,
       categoriaId,
+      ...(ubicacion ? { latitud: ubicacion.latitud, longitud: ubicacion.longitud } : {}),
     };
 
     if (!isOnline) {
       // Offline: se guarda de forma optimista en SQLite y se encola en el outbox;
       // el id de la operación viaja luego como Idempotency-Key al reintentar.
+      // La foto no viaja por este camino (requiere conexión), solo las coordenadas GPS.
       const localId = `local-${generarUuid()}`;
       await insertarPuntoPendiente({
         localId,
@@ -65,6 +133,8 @@ function CrearPuntoForm({ navigation }: Props) {
         descripcion: payload.descripcion,
         categoriaId,
         categoriaNombre: categoriaSeleccionada?.nombre || 'General',
+        latitud: ubicacion?.latitud,
+        longitud: ubicacion?.longitud,
       });
       await encolarOperacion({
         id: generarUuid(),
@@ -79,7 +149,11 @@ function CrearPuntoForm({ navigation }: Props) {
     }
 
     try {
-      await crearPunto(payload, generarUuid());
+      if (foto) {
+        await crearPuntoConFoto(payload, foto.uri as string, generarUuid());
+      } else {
+        await crearPunto(payload, generarUuid());
+      }
       setMensajeExito('Punto de interés creado con éxito.');
       setTimeout(() => navigation.navigate('ListaPuntos'), 800);
     } catch (error) {
@@ -169,6 +243,27 @@ function CrearPuntoForm({ navigation }: Props) {
       />
       {errors.categoriaId && <Text style={styles.error}>{errors.categoriaId.message}</Text>}
 
+      <Text style={styles.label}>Foto (opcional)</Text>
+      {foto?.uri && <Image source={{ uri: foto.uri }} style={styles.previewFoto} />}
+      <AppButton
+        title={foto ? 'Cambiar foto' : 'Agregar foto'}
+        onPress={elegirFoto}
+        disabled={!isOnline}
+      />
+      {!isOnline && <Text style={styles.aviso}>La foto requiere conexión a internet.</Text>}
+
+      <Text style={styles.label}>Ubicación (opcional)</Text>
+      {ubicacion && (
+        <Text style={styles.ubicacionTexto}>
+          📍 {ubicacion.latitud.toFixed(6)}, {ubicacion.longitud.toFixed(6)}
+        </Text>
+      )}
+      <AppButton
+        title={buscandoUbicacion ? 'Obteniendo ubicación...' : ubicacion ? 'Actualizar mi ubicación' : 'Usar mi ubicación actual'}
+        onPress={obtenerUbicacionActual}
+        disabled={buscandoUbicacion}
+      />
+
       {!isOnline && <Text style={styles.aviso}>Sin conexión: el punto se guardará y sincronizará después.</Text>}
       {mensajeExito && <Text style={styles.exito}>{mensajeExito}</Text>}
       {mensajeError && <Text style={styles.error}>{mensajeError}</Text>}
@@ -203,6 +298,14 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   categoriasContenedor: { marginTop: theme.spacing.xs },
   categoriaBoton: { marginBottom: theme.spacing.xs },
+  previewFoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: theme.spacing.xs,
+    backgroundColor: theme.colors.surface,
+  },
+  ubicacionTexto: { fontSize: 14, color: theme.colors.text, marginBottom: theme.spacing.xs },
   error: { color: theme.colors.error, marginTop: theme.spacing.xs },
   exito: { color: theme.colors.success, marginTop: theme.spacing.sm },
   aviso: { color: theme.colors.warning, marginTop: theme.spacing.sm },

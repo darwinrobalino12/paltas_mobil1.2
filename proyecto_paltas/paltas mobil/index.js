@@ -14,6 +14,8 @@ const crearRouterCategorias = require('./routes/categorias');
 
 const app = express();
 app.use(express.json());
+// Sirve las fotos subidas por POST /api/puntos-interes (multipart, campo "imagen").
+app.use('/uploads', express.static(require('path').join(__dirname, 'uploads')));
 
 // Configuración del cliente de Redis para Caché
 const redisClient = createClient({ url: 'redis://localhost:6379' });
