@@ -1,18 +1,23 @@
 import { getDb } from './db';
 import { obtenerCategorias } from '../../api/categorias';
 
+// Igual que puntosRepository.ts: la FUENTE REMOTA es api/categorias.ts, y
+// aquí viven la FUENTE LOCAL ([FUENTE LOCAL]) y el REPOSITORIO
+// ([REPOSITORIO], sincronizarCategorias) que usan las pantallas.
 export interface CategoriaLocal {
   id: number;
   nombre: string;
 }
 
+// [FUENTE LOCAL]
 export async function listarCategoriasLocales(): Promise<CategoriaLocal[]> {
   const db = await getDb();
   const result = await db.execute('SELECT id, nombre FROM categorias ORDER BY nombre ASC');
   return result.rows.map(row => ({ id: Number(row.id), nombre: String(row.nombre) }));
 }
 
-// Minimización: de Categoria solo se cachea id/nombre, que es lo único que usa el picker.
+// [REPOSITORIO] Minimización: de Categoria solo se cachea id/nombre, que es
+// lo único que usa el picker.
 export async function sincronizarCategorias(): Promise<CategoriaLocal[]> {
   try {
     const remotas = await obtenerCategorias();

@@ -2,7 +2,12 @@ import * as outboxRepo from '../storage/sqlite/outboxRepository';
 import * as puntosRepo from '../storage/sqlite/puntosRepository';
 import { crearPunto, CrearPuntoPayload } from '../api/puntos';
 
-// Recorre la cola de salida y reintenta cada operación pendiente cuyo backoff ya venció.
+// Esta es la pieza que integra el repositorio con la base de datos local y la
+// cola de salida (outbox) de la Semana 12: recorre la cola y reintenta cada
+// operación pendiente cuyo backoff ya venció. Como se explica en
+// api/errors.ts, solo existe esta cola de reintentos automáticos, y solo
+// para la creación de puntos de interés — es segura porque cada intento
+// viaja con el mismo Idempotency-Key.
 export async function procesarOutbox(): Promise<void> {
   const pendientes = await outboxRepo.listarPendientes();
   const ahora = Date.now();

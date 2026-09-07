@@ -1,4 +1,5 @@
 import { apiFetch, parseJsonOrThrow } from './client';
+import { usuarioDesdeJson } from '../storage/secure/tokenStorage';
 import type { UsuarioAutenticado } from '../storage/secure/tokenStorage';
 
 interface LoginResponse {
@@ -12,7 +13,12 @@ export async function login(username: string, password: string): Promise<LoginRe
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  return parseJsonOrThrow<LoginResponse>(response);
+  const json = await parseJsonOrThrow<any>(response);
+  return {
+    accessToken: json.accessToken,
+    refreshToken: json.refreshToken,
+    usuario: usuarioDesdeJson(json.usuario),
+  };
 }
 
 export async function logout(usuarioId: number): Promise<void> {

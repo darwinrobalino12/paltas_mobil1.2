@@ -10,6 +10,7 @@ import { AppButton } from '../components/AppButton';
 import { RequireAuth } from '../navigation/RequireAuth';
 import { crearPunto, crearPuntoConFoto } from '../api/puntos';
 import { ApiError } from '../api/client';
+import { traducirError } from '../api/errors';
 import { listarCategoriasLocales, sincronizarCategorias, CategoriaLocal } from '../storage/sqlite/categoriasRepository';
 import { insertarPuntoPendiente } from '../storage/sqlite/puntosRepository';
 import { encolarOperacion } from '../storage/sqlite/outboxRepository';
@@ -157,6 +158,8 @@ function CrearPuntoForm({ navigation }: Props) {
       setMensajeExito('Punto de interés creado con éxito.');
       setTimeout(() => navigation.navigate('ListaPuntos'), 800);
     } catch (error) {
+      // El 422 (datos inválidos por campo) es específico de este formulario:
+      // se traduce a errores debajo de cada input, no a un mensaje genérico.
       if (error instanceof ApiError && error.status === 422) {
         const cuerpo = error.body as { errors?: Array<{ field: string; message: string }> };
         cuerpo.errors?.forEach(e => {
@@ -166,18 +169,9 @@ function CrearPuntoForm({ navigation }: Props) {
         });
         return;
       }
-      if (error instanceof ApiError && error.status === 401) {
-        // El cliente ya intentó refrescar el token una vez (ver api/client.ts).
-        // Si sigue en 401, la sesión expiró de verdad.
-        setMensajeError('Tu sesión expiró. Vuelve a iniciar sesión desde la pestaña Perfil.');
-        return;
-      }
-      if (error instanceof ApiError && error.status === 403) {
-        // 403 NO redirige a Login: el usuario sigue autenticado, solo no tiene el rol.
-        setMensajeError('No tienes permiso para crear puntos de interés.');
-        return;
-      }
-      setMensajeError('No se pudo crear el punto de interés. Intenta de nuevo.');
+      // Todo lo demás (sin conexión, tiempo agotado, error de servidor, 401,
+      // 403, etc.) usa el traductor común de las 4 familias de fallo.
+      setMensajeError(traducirError(error));
     }
   };
 

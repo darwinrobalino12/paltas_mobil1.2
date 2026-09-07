@@ -3,6 +3,16 @@ import { getDb } from './db';
 import { getUltimaSincronizacion, marcarSincronizado, estaCacheVencida } from './schemaMeta';
 import { obtenerPuntos, PuntoInteresApi } from '../../api/puntos';
 
+// Este archivo contiene DOS de las tres capas de datos del proyecto (la
+// tercera, la FUENTE REMOTA, es api/puntos.ts — solo habla con el backend):
+//
+// - FUENTE LOCAL (funciones marcadas [FUENTE LOCAL]): solo leen/escriben en
+//   SQLite, nunca llaman a la red directamente.
+// - REPOSITORIO (sincronizarPuntos, marcada [REPOSITORIO]): es la única
+//   función que las pantallas usan para leer la lista de puntos. Decide
+//   internamente si sirve la caché o pide datos frescos al backend — la
+//   pantalla nunca sabe (ni le importa) de dónde vinieron los datos.
+
 export interface PuntoLocal {
   id: string;
   nombre: string;
@@ -31,18 +41,21 @@ function mapRow(row: Record<string, unknown>): PuntoLocal {
   };
 }
 
+// [FUENTE LOCAL]
 export async function listarPuntosLocales(): Promise<PuntoLocal[]> {
   const db = await getDb();
   const result = await db.execute('SELECT * FROM puntos_interes WHERE deleted_locally = 0 ORDER BY nombre ASC');
   return result.rows.map(mapRow);
 }
 
+// [FUENTE LOCAL]
 export async function obtenerPuntoLocalPorId(id: string): Promise<PuntoLocal | null> {
   const db = await getDb();
   const result = await db.execute('SELECT * FROM puntos_interes WHERE id = ?', [id]);
   return result.rows.length > 0 ? mapRow(result.rows[0]) : null;
 }
 
+// [FUENTE LOCAL]
 async function guardarPuntoEnTx(tx: Transaction, punto: PuntoInteresApi, ahora: string): Promise<void> {
   await tx.execute(
     `INSERT INTO puntos_interes
@@ -74,6 +87,7 @@ async function guardarPuntoEnTx(tx: Transaction, punto: PuntoInteresApi, ahora: 
   );
 }
 
+// [FUENTE LOCAL]
 async function guardarPuntosEnCache(puntos: PuntoInteresApi[]): Promise<void> {
   const db = await getDb();
   const ahora = new Date().toISOString();
@@ -99,9 +113,10 @@ export interface SincronizarPuntosResultado {
   ultimaSincronizacion: string | null;
 }
 
-// Cache-first: si la caché no está vencida, se responde solo con lo local (sin red).
-// Si está vencida (o se fuerza), se intenta refrescar; si falla, se degrada a lo
-// que ya había en caché — la pantalla nunca queda vacía.
+// [REPOSITORIO] Cache-first: si la caché no está vencida, se responde solo con
+// lo local (sin red). Si está vencida (o se fuerza), se intenta refrescar
+// desde la fuente remota (api/puntos.ts); si falla, se degrada a lo que ya
+// había en caché — la pantalla nunca queda vacía.
 export async function sincronizarPuntos(forzar = false): Promise<SincronizarPuntosResultado> {
   const ultimaSincronizacion = await getUltimaSincronizacion();
   const cacheVencida = estaCacheVencida(ultimaSincronizacion);
@@ -123,6 +138,7 @@ export async function sincronizarPuntos(forzar = false): Promise<SincronizarPunt
   }
 }
 
+// [FUENTE LOCAL]
 export async function insertarPuntoPendiente(punto: {
   localId: string;
   nombre: string;
@@ -151,8 +167,10 @@ export async function insertarPuntoPendiente(punto: {
   );
 }
 
-// Cuando el outbox confirma la creación contra el servidor, el registro optimista
-// (id local) se reemplaza por el registro real con id e updatedAt del servidor.
+// [FUENTE LOCAL] Cuando el outbox confirma la creación contra el servidor, el
+// registro optimista (id local) se reemplaza por el registro real con id e
+// updatedAt del servidor. Esta es la pieza que articula el repositorio con
+// la cola de salida (outbox) de la Semana 12: ver sync/processOutbox.ts.
 export async function confirmarPuntoCreado(localId: string, puntoServidor: PuntoInteresApi): Promise<void> {
   const db = await getDb();
   const ahora = new Date().toISOString();

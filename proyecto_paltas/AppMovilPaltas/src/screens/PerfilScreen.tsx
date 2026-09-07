@@ -5,7 +5,8 @@ import { AppButton } from '../components/AppButton';
 import { useAuth } from '../context/AuthContext';
 import { useSync } from '../context/SyncContext';
 import { RequireAuth } from '../navigation/RequireAuth';
-import { API_BASE_URL } from '../config/api';
+import { apiFetch, parseJsonOrThrow } from '../api/client';
+import { traducirError } from '../api/errors';
 import { RemoteState, remoteIdle, remoteLoading, remoteSuccess, remoteError } from '../utils/remoteState';
 
 function PerfilContenido() {
@@ -14,15 +15,17 @@ function PerfilContenido() {
   const [diagnostico, setDiagnostico] = useState<RemoteState<{ mensaje: string }>>(remoteIdle());
 
   // Reubicado desde App.tsx: la prueba manual de conexión al backend que ya
-  // existía, ahora vive como acción de diagnóstico dentro de Perfil.
+  // existía, ahora vive como acción de diagnóstico dentro de Perfil. Usa
+  // apiFetch (el único cliente HTTP del proyecto) en vez de un fetch suelto,
+  // para que también pase por el tiempo de espera explícito.
   const probarConexion = async () => {
     setDiagnostico(remoteLoading());
     try {
-      const response = await fetch(`${API_BASE_URL}/saludo`);
-      const json = await response.json();
+      const response = await apiFetch('/saludo');
+      const json = await parseJsonOrThrow<{ mensaje: string }>(response);
       setDiagnostico(remoteSuccess(json));
-    } catch {
-      setDiagnostico(remoteError('No se pudo conectar al backend. ¿Está encendido el servidor?'));
+    } catch (error) {
+      setDiagnostico(remoteError(traducirError(error)));
     }
   };
 

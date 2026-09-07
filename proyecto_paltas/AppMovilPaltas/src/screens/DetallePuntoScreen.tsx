@@ -7,6 +7,7 @@ import { AsyncStateView } from '../components/AsyncStateView';
 import { RemoteState, remoteLoading, remoteSuccess, remoteError } from '../utils/remoteState';
 import { obtenerPuntoLocalPorId, PuntoLocal } from '../storage/sqlite/puntosRepository';
 import { obtenerPuntoPorId } from '../api/puntos';
+import { traducirError } from '../api/errors';
 import { API_HOST } from '../config/api';
 
 type Props = NativeStackScreenProps<CatalogoStackParamList, 'DetallePunto'>;
@@ -51,9 +52,9 @@ export const DetallePuntoScreen = ({ route }: Props) => {
           imagenUrl: remoto.imagenUrl ?? null,
         })
       );
-    } catch {
+    } catch (error) {
       if (!local) {
-        setEstado(remoteError('No se pudo cargar el punto de interés. Verifica tu conexión.'));
+        setEstado(remoteError(traducirError(error)));
       }
       // Si ya había versión local, se conserva (cache-first): nunca pantalla vacía.
     }
