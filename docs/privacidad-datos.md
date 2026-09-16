@@ -7,7 +7,10 @@
 | `accessToken`, `refreshToken` | Sensible (credencial de sesión) | Keychain/Keystore (`src/storage/secure/tokenStorage.ts`) | Sí (cifrado del sistema operativo) |
 | Usuario autenticado (`id`, `username`, `rol`) | Identificador de cuenta, no sensible en reposo | Memoria (`AuthContext`), rehidratado desde Keychain al abrir la app | Va dentro del mismo registro cifrado que los tokens |
 | Catálogo de Puntos de Interés (`nombre`, `descripcion`, categoría) | Dato de negocio público (no personal) | SQLite (`puntos_interes`, `categorias`) | No — es información pública del catálogo turístico |
-| Cola de operaciones pendientes (outbox) | Operacional, generado por el cliente | SQLite (`outbox`) | No — no contiene credenciales, solo el payload de la creación (nombre/descripción/categoría) |
+| Cola de operaciones pendientes (outbox) | Operacional, generado por el cliente | SQLite (`outbox`) | No — no contiene credenciales, solo el payload de la creación (nombre/descripción/categoría/coordenadas) |
+| Coordenadas GPS de un punto de interés | Dato de negocio (ubicación del lugar, no de la persona) | SQLite (`puntos_interes.latitud/longitud`), solo si el usuario las agrega al crear el punto | No — es información pública del catálogo turístico |
+| Foto de un punto de interés | Dato de negocio | Se sube al backend al crear el punto (no viaja offline); una copia queda en la galería del dispositivo por `saveToPhotos` | No aplica — no se persiste el binario en el cliente |
+| Preferencia de notificaciones activadas | Configuración de UI | SQLite (`schema_meta`) | No |
 | Marca de última sincronización | Metadato de UI | SQLite (`schema_meta`) | No |
 | Valores de un formulario en edición | Efímero | Memoria (`useState` / react-hook-form) | No aplica — nunca se persiste |
 
@@ -23,11 +26,25 @@ Keychain/Keystore vía `react-native-keychain`, nunca a `AsyncStorage` ni a SQLi
 | `accessToken` / `refreshToken` | Mantener la sesión iniciada sin pedir la contraseña en cada petición | `accessToken`: 15 minutos. `refreshToken`: 7 días o hasta logout (lo que ocurra primero) |
 | `rol` (`admin`/`user`) | Determinar si la cuenta puede crear puntos de interés (autorización) | Igual que la sesión |
 
-No se recolecta ubicación, contactos, cámara, ni ningún otro dato sensible del
-dispositivo. La contraseña **nunca** se persiste en el cliente: viaja una sola
-vez en el `POST /api/login` y se descarta inmediatamente después de enviarse
-(ver `LoginScreen.tsx`); en el backend se guarda con hash `bcrypt`, nunca en
-texto plano.
+Desde la Semana 13 la app sí usa dos capacidades del dispositivo, ambas
+descritas en detalle en `docs/semana14-capacidades-nativas.md`:
+- **Ubicación (GPS)**: solo "en uso", solo cuando el usuario admin toca "Usar
+  mi ubicación actual" al crear un punto de interés. Nunca se pide en segundo
+  plano ni al abrir la app.
+- **Cámara**: solo cuando el usuario admin toca "Tomar foto"; la foto se sube
+  al backend como parte del punto de interés y nunca se guarda en el
+  dispositivo salvo la copia que el propio sistema operativo hace en la
+  galería (`saveToPhotos`).
+
+No se recolectan contactos ni ningún otro dato sensible del dispositivo, y no
+se usa ubicación "siempre" (background). La contraseña **nunca** se persiste
+en el cliente: viaja una sola vez en el `POST /api/login` y se descarta
+inmediatamente después de enviarse (ver `LoginScreen.tsx`); en el backend se
+guarda con hash `bcrypt`, nunca en texto plano.
+
+Las notificaciones locales (Semana 14) son generadas y mostradas enteramente
+en el dispositivo por `notifee`: no se envían a ningún servidor de terceros ni
+usan un servicio de push remoto.
 
 ## Minimización aplicada
 - De `Categoria` solo se cachea `id` y `nombre` — es lo único que usa el picker

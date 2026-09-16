@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TextInput, ScrollView, Image, Alert, PermissionsAndroid, Platform } from 'react-native';
+import { View, StyleSheet, Text, TextInput, ScrollView, Image, Alert, Platform, Linking } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, Asset } from 'react-native-image-picker';
@@ -17,6 +17,9 @@ import { encolarOperacion } from '../storage/sqlite/outboxRepository';
 import { generarUuid } from '../utils/uuid';
 import { useSync } from '../context/SyncContext';
 import { reglasNombre, reglasDescripcion, reglasCategoriaId } from '../validation/puntoInteres';
+import { usePermiso } from '../permissions/usePermiso';
+import { PERMISO_UBICACION, PERMISO_CAMARA } from '../permissions/permisosConfig';
+import { EstadoPermiso } from '../permissions/types';
 
 type Props = NativeStackScreenProps<CatalogoStackParamList, 'CrearPunto'>;
 
@@ -31,17 +34,18 @@ interface Ubicacion {
   longitud: number;
 }
 
-async function pedirPermisoUbicacion(): Promise<boolean> {
-  if (Platform.OS !== 'android') {
-    return true;
+// El GPS del dispositivo está aparte del permiso: se puede tener el permiso
+// concedido y aun así tener el GPS apagado. Como React Native no expone un
+// switch directo para eso, lo detectamos por el código de error que devuelve
+// Geolocation (2 = POSITION_UNAVAILABLE) y ofrecemos abrir la pantalla de
+// ajustes de ubicación del sistema.
+function abrirAjustesUbicacionDispositivo() {
+  if (Platform.OS === 'android') {
+    Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+  } else {
+    // iOS no tiene un deep-link al toggle de "Localización"; se abre Ajustes.
+    Linking.openURL('app-settings:');
   }
-  const resultado = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
-    title: 'Permiso de ubicación',
-    message: 'La app necesita acceso a tu ubicación para registrar las coordenadas del punto de interés.',
-    buttonPositive: 'Permitir',
-    buttonNegative: 'Cancelar',
-  });
-  return resultado === PermissionsAndroid.RESULTS.GRANTED;
 }
 
 function CrearPuntoForm({ navigation }: Props) {
@@ -59,6 +63,8 @@ function CrearPuntoForm({ navigation }: Props) {
   const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
   const [buscandoUbicacion, setBuscandoUbicacion] = useState(false);
   const { isOnline, refrescarContador } = useSync();
+  const permisoUbicacion = usePermiso(PERMISO_UBICACION);
+  const permisoCamara = usePermiso(PERMISO_CAMARA);
 
   useEffect(() => {
     (async () => {
@@ -67,44 +73,116 @@ function CrearPuntoForm({ navigation }: Props) {
     })();
   }, []);
 
+  // Tomar la foto SÍ necesita permiso de cámara; elegir de la galería usa el
+  // selector nativo del sistema (Photo Picker en Android, PHPicker en iOS) y
+  // por eso no pide ningún permiso — no lo tocamos.
+  const tomarFoto = async () => {
+    setMensajeError(null);
+    let estado: EstadoPermiso = await permisoCamara.verificar();
+
+    if (estado === 'no_disponible') {
+      Alert.alert('Cámara no disponible', 'Este dispositivo no tiene cámara disponible.');
+      return;
+    }
+
+    if (estado === 'denegado_permanente') {
+      Alert.alert(
+        'Permiso bloqueado',
+        'Denegaste el permiso de cámara y elegiste "no volver a preguntar". Actívalo desde los Ajustes del sistema para tomar la foto.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir ajustes', onPress: () => permisoCamara.abrirAjustes() },
+        ]
+      );
+      return;
+    }
+
+    if (estado === 'denegado') {
+      estado = await permisoCamara.solicitarConExplicacion(
+        'Foto del punto de interés',
+        'Necesitamos acceso a la cámara para tomar la foto de este punto de interés.'
+      );
+    }
+
+    if (estado !== 'concedido') {
+      setMensajeError('Permiso de cámara denegado. No se pudo tomar la foto.');
+      return;
+    }
+
+    const resultado = await launchCamera({ mediaType: 'photo', quality: 0.7, saveToPhotos: true });
+    const asset = resultado.assets?.[0];
+    if (asset?.uri) setFoto(asset);
+  };
+
+  const elegirDeGaleria = async () => {
+    const resultado = await launchImageLibrary({ mediaType: 'photo', quality: 0.7 });
+    const asset = resultado.assets?.[0];
+    if (asset?.uri) setFoto(asset);
+  };
+
   const elegirFoto = () => {
     Alert.alert('Agregar foto', '¿Cómo quieres agregar la foto?', [
-      {
-        text: 'Tomar foto',
-        onPress: async () => {
-          const resultado = await launchCamera({ mediaType: 'photo', quality: 0.7, saveToPhotos: true });
-          const asset = resultado.assets?.[0];
-          if (asset?.uri) setFoto(asset);
-        },
-      },
-      {
-        text: 'Elegir de galería',
-        onPress: async () => {
-          const resultado = await launchImageLibrary({ mediaType: 'photo', quality: 0.7 });
-          const asset = resultado.assets?.[0];
-          if (asset?.uri) setFoto(asset);
-        },
-      },
+      { text: 'Tomar foto', onPress: tomarFoto },
+      { text: 'Elegir de galería', onPress: elegirDeGaleria },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
   const obtenerUbicacionActual = async () => {
-    const permitido = await pedirPermisoUbicacion();
-    if (!permitido) {
+    setMensajeError(null);
+    let estado: EstadoPermiso = await permisoUbicacion.verificar();
+
+    if (estado === 'no_disponible') {
+      setMensajeError('Este dispositivo no tiene servicio de ubicación disponible.');
+      return;
+    }
+
+    if (estado === 'denegado_permanente') {
+      Alert.alert(
+        'Permiso bloqueado',
+        'Denegaste el permiso de ubicación y elegiste "no volver a preguntar". Actívalo desde los Ajustes del sistema para usar tu posición actual.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir ajustes', onPress: () => permisoUbicacion.abrirAjustes() },
+        ]
+      );
+      return;
+    }
+
+    if (estado === 'denegado') {
+      estado = await permisoUbicacion.solicitarConExplicacion(
+        'Ubicación del punto de interés',
+        'Necesitamos tu ubicación mientras usas la app para guardar las coordenadas exactas de este punto de interés.'
+      );
+    }
+
+    if (estado !== 'concedido') {
       setMensajeError('Permiso de ubicación denegado. No se pudo obtener tu posición.');
       return;
     }
+
     setBuscandoUbicacion(true);
-    setMensajeError(null);
     Geolocation.getCurrentPosition(
       posicion => {
         setUbicacion({ latitud: posicion.coords.latitude, longitud: posicion.coords.longitude });
         setBuscandoUbicacion(false);
       },
-      () => {
-        setMensajeError('No se pudo obtener tu ubicación. Intenta de nuevo.');
+      error => {
         setBuscandoUbicacion(false);
+        if (error.code === 2) {
+          // POSITION_UNAVAILABLE: normalmente significa que el GPS está apagado,
+          // no que falte el permiso (eso ya se validó arriba).
+          Alert.alert(
+            'GPS desactivado',
+            'No pudimos obtener tu posición. Verifica que el GPS de tu dispositivo esté activado.',
+            [
+              { text: 'Cerrar', style: 'cancel' },
+              { text: 'Abrir ajustes de ubicación', onPress: abrirAjustesUbicacionDispositivo },
+            ]
+          );
+        } else {
+          setMensajeError('No se pudo obtener tu ubicación. Intenta de nuevo.');
+        }
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );

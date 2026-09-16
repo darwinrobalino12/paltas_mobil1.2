@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@notifee/react-native": "^9.1.8",
     "@op-engineering/op-sqlite": "^18.1.4",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/netinfo": "^11.4.0",
@@ -23,6 +24,7 @@
     "react-native-gesture-handler": "^2.20.0",
     "react-native-image-picker": "^8.2.1",
     "react-native-keychain": "^9.0.0",
+    "react-native-permissions": "^5.4.2",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.0.0",
     "react-native-uuid": "^2.0.2"

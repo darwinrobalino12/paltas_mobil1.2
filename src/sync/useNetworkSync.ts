@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { procesarOutbox } from './processOutbox';
 import { contarPendientes } from '../storage/sqlite/outboxRepository';
+import { notificarSincronizacion } from '../notifications/notificationService';
 
 export interface NetworkSyncState {
   isOnline: boolean;
@@ -26,7 +27,17 @@ export function useNetworkSync(): NetworkSyncState {
   const sincronizarAhora = useCallback(async () => {
     setSyncing(true);
     try {
+      const pendientesAntes = await contarPendientes();
       await procesarOutbox();
+      const pendientesDespues = await contarPendientes();
+      // Avisa solo si de verdad se completó algo (evita notificar "0 pendientes"
+      // cada vez que se abre la app o se reconecta sin nada en la cola).
+      if (pendientesDespues < pendientesAntes) {
+        const enviados = pendientesAntes - pendientesDespues;
+        await notificarSincronizacion(
+          `Se sincronizaron ${enviados} punto(s) de interés pendiente(s).`
+        );
+      }
     } finally {
       await refrescarContador();
       setSyncing(false);
@@ -34,16 +45,23 @@ export function useNetworkSync(): NetworkSyncState {
   }, [refrescarContador]);
 
   useEffect(() => {
-    refrescarContador();
+    let primerChequeo = true;
 
     const unsubscribe = NetInfo.addEventListener(state => {
       const conectado = Boolean(state.isConnected && state.isInternetReachable !== false);
       setIsOnline(conectado);
 
-      if (conectado && eraOffline.current) {
+      // Sincroniza al reconectar (offline -> online) y también la primera vez
+      // que se conoce el estado de red al abrir la app, sin depender de un
+      // temporizador ni de polling periódico.
+      if (conectado && (eraOffline.current || primerChequeo)) {
         sincronizarAhora();
+      } else if (primerChequeo) {
+        refrescarContador();
       }
+
       eraOffline.current = !conectado;
+      primerChequeo = false;
     });
 
     return unsubscribe;
