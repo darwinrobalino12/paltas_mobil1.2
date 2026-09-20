@@ -79,6 +79,15 @@ botón de Ajustes (ver comentario en el propio archivo).
 - La preferencia "notificaciones activadas" se guarda en `schema_meta` (reutilizando `getMeta`/`setMeta`, ya existente) en vez de agregar una dependencia nueva solo para un booleano.
 - `useNetworkSync.ts` ahora sincroniza tanto al reconectar como al abrir la app (antes solo sincronizaba al reconectar), y dispara una notificación local cuando la sincronización realmente completó operaciones pendientes.
 
+## Prueba en dispositivo físico (no emulador)
+
+El profesor pidió explícitamente probar en un dispositivo Android físico, no en emulador. Como el proyecto es cooperativo y el compañero prueba desde otra red (no la misma WiFi que el backend), se armó lo siguiente:
+
+- Se generó un **APK de release** (`./gradlew assembleRelease`, restringido a `arm64-v8a,armeabi-v7a` para cubrir teléfonos reales), que trae el JS empaquetado adentro y no depende de Metro corriendo.
+- Como un APK no puede llevar el backend adentro (Node/MySQL/Redis siguen siendo un servidor aparte, que es justamente la arquitectura cliente-servidor de la Semana 12), se expuso el backend local con un túnel de **ngrok** (`ngrok http 3000`) para que el login funcione desde cualquier red. `src/config/api.ts` apunta `HOST_PRODUCCION` a esa URL — hay que actualizarla y volver a generar el APK cada vez que se reinicia el túnel, porque la URL gratuita de ngrok cambia.
+- El APK se compartió directamente (archivo `.apk`) con el compañero, quien lo instaló habilitando "orígenes desconocidos"; se confirmó en los logs del backend y en el inspector de ngrok que las peticiones (login, listar puntos, crear punto) llegaron desde una IP externa real, no desde la PC de desarrollo.
+- Cualquier otra persona puede instalar el mismo APK y probar en paralelo sin configuración extra, siempre que tenga conexión a internet y el backend + túnel de esta PC sigan corriendo — el APK es solo el cliente, no importa cuántos dispositivos lo instalen.
+
 ## Casos de prueba en el dispositivo Android físico
 
 Los 5 casos que debe cubrir tanto la prueba manual como el video:

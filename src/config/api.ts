@@ -8,7 +8,13 @@
 // de Android accede a "localhost" de la PC (donde corre el backend con
 // docker-compose). En producción, la app hablaría con un servidor real.
 const HOST_DESARROLLO = 'http://10.0.2.2:3000';
-const HOST_PRODUCCION = 'https://api.tallerpaltas.example.com'; // placeholder: reemplazar por el dominio real al desplegar
+// APK de prueba (Semana 14): el celular del compañero no está en la misma red
+// que el backend, así que exponemos el backend con un túnel de ngrok
+// (https://ngrok.com/) mientras se hacen las pruebas. OJO: la URL gratuita de
+// ngrok cambia cada vez que se reinicia el túnel — hay que actualizar esta
+// constante y volver a generar el APK (gradlew assembleRelease) cada vez que
+// eso pase. No es la URL final de producción, es solo para esta entrega.
+const HOST_PRODUCCION = 'https://wieldable-create-species.ngrok-free.dev'; // URL de ngrok (Semana 14) — cambia si se reinicia el túnel
 
 export const API_HOST = __DEV__ ? HOST_DESARROLLO : HOST_PRODUCCION;
 
