@@ -1,0 +1,6 @@
+# Copia vieja/duplicada del proyecto (ver también modulePathIgnorePatterns en
+# jest.config.js) — no es el código que se compila ni se prueba.
+proyecto_paltas/
+
+# Reporte de cobertura generado por `jest --coverage` — no es código fuente.
+coverage/

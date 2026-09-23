@@ -1,5 +1,6 @@
 import { API_BASE_URL, TIMEOUT_MS } from '../config/api';
 import { getSession, notifyAccessTokenRefreshed } from './authSession';
+import { logger } from '../utils/logger';
 
 // Cliente HTTP: usamos el fetch nativo de React Native (no axios ni otra
 // librería) envuelto en UNA sola función, apiFetch. Justificación: React
@@ -48,27 +49,16 @@ async function fetchConTimeout(url: string, options: RequestInit): Promise<Respo
 // INTERCEPTOR DE REGISTRO: imprime cada petición y respuesta en la consola de
 // Metro, para poder ver el tráfico HTTP mientras se depura. Dos reglas de
 // seguridad, no negociables:
-//   - Solo corre si __DEV__ es true. En un build de producción (__DEV__
-//     false) estas funciones no imprimen nada — el registro detallado queda
-//     desactivado.
+//   - Solo corre si __DEV__ es true — logger.debug() ya se encarga de eso.
 //   - NUNCA imprime el valor real del header Authorization (ahí viaja el
-//     access token). Se reemplaza por "[OCULTO]" antes de loguear.
+//     access token): logger.debug() pasa el contexto por sanitizarContexto(),
+//     que oculta cualquier clave llamada "Authorization" automáticamente.
 function registrarPeticion(method: string, path: string, headers: HeadersInit_): void {
-  if (!__DEV__) {
-    return;
-  }
-  const headersSeguros: Record<string, string> = { ...(headers as Record<string, string>) };
-  if (headersSeguros.Authorization) {
-    headersSeguros.Authorization = '[OCULTO]';
-  }
-  console.log(`[HTTP] → ${method} ${path}`, headersSeguros);
+  logger.debug(`[HTTP] → ${method} ${path}`, headers as Record<string, string>);
 }
 
 function registrarRespuesta(method: string, path: string, status: number): void {
-  if (!__DEV__) {
-    return;
-  }
-  console.log(`[HTTP] ← ${status} ${method} ${path}`);
+  logger.debug(`[HTTP] ← ${status} ${method} ${path}`);
 }
 
 // INTERCEPTOR DE RENOVACIÓN (mitad 1 de 2, ver apiFetch más abajo): pide un

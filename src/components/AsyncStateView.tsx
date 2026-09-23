@@ -13,7 +13,7 @@ interface AsyncStateViewProps {
 export const AsyncStateView = ({ status, errorMessage, onRetry, children }: AsyncStateViewProps) => {
   if (status === 'loading') {
     return (
-      <View style={styles.centered}>
+      <View style={styles.centered} testID="async-state-loading">
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.text}>Cargando información del servidor...</Text>
       </View>
@@ -22,7 +22,7 @@ export const AsyncStateView = ({ status, errorMessage, onRetry, children }: Asyn
 
   if (status === 'error') {
     return (
-      <View style={styles.centered}>
+      <View style={styles.centered} testID="async-state-error">
         <Text style={styles.errorTitle}>¡Ocurrió un problema!</Text>
         <Text style={styles.text}>{errorMessage || 'No se pudo conectar con el servidor backend.'}</Text>
         {onRetry && <AppButton title="Reintentar Conexión" onPress={onRetry} />}
@@ -32,7 +32,7 @@ export const AsyncStateView = ({ status, errorMessage, onRetry, children }: Asyn
 
   if (status === 'empty') {
     return (
-      <View style={styles.centered}>
+      <View style={styles.centered} testID="async-state-empty">
         <Text style={styles.text}>No se encontraron registros disponibles en este momento.</Text>
       </View>
     );

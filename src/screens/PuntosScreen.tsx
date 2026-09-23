@@ -68,6 +68,7 @@ export const PuntosScreen = ({ navigation }: Props) => {
 
       <AsyncStateView {...toAsyncViewProps(estado)} onRetry={() => cargar(true)}>
         <FlatList
+          testID="lista-puntos"
           data={estado.status === 'success' ? estado.data : []}
           keyExtractor={item => item.id}
           refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefresh} />}

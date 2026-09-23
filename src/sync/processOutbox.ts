@@ -1,6 +1,7 @@
 import * as outboxRepo from '../storage/sqlite/outboxRepository';
 import * as puntosRepo from '../storage/sqlite/puntosRepository';
 import { crearPunto, CrearPuntoPayload } from '../api/puntos';
+import { logger } from '../utils/logger';
 
 // Esta es la pieza que integra el repositorio con la base de datos local y la
 // cola de salida (outbox) de la Semana 12: recorre la cola y reintenta cada
@@ -27,6 +28,13 @@ export async function procesarOutbox(): Promise<void> {
       }
       await outboxRepo.marcarCompletada(item.id);
     } catch {
+      // No se loguea item.payload a propósito: es texto libre del formulario
+      // (nombre/descripción), no hace falta para diagnosticar el fallo de red.
+      logger.warn('Fallo al sincronizar un ítem del outbox, se reintentará', {
+        itemId: item.id,
+        entity: item.entity,
+        operation: item.operation,
+      });
       await outboxRepo.registrarFallo(item.id, item.retryCount);
     }
   }

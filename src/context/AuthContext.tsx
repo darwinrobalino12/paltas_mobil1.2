@@ -1,10 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import * as Sentry from '@sentry/react-native';
 import { authReducer, authInitialState, DestinoPendiente } from './authReducer';
 import * as tokenStorage from '../storage/secure/tokenStorage';
 import type { UsuarioAutenticado } from '../storage/secure/tokenStorage';
 import { setSession, setOnAccessTokenRefreshed } from '../api/authSession';
 import { login as loginApi, logout as logoutApi } from '../api/auth';
 import { wipeLocalDatabase } from '../storage/sqlite/db';
+import { logger } from '../utils/logger';
+
+// Identificador interno (numérico, ver storage/secure/tokenStorage.ts) — NUNCA
+// el username, correo ni cédula. Es lo único que Sentry necesita para poder
+// agrupar los eventos de una misma sesión sin guardar datos personales.
+function marcarUsuarioEnSentry(usuario: UsuarioAutenticado): void {
+  Sentry.setUser({ id: String(usuario.id) });
+}
 
 interface AuthContextValue {
   status: 'bootstrapping' | 'unauthenticated' | 'authenticated';
@@ -37,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sesion = await tokenStorage.leerSesion();
         if (sesion) {
           setSession({ accessToken: sesion.accessToken, refreshToken: sesion.refreshToken });
+          marcarUsuarioEnSentry(sesion.usuario);
           dispatch({
             type: 'SESION_INICIADA',
             usuario: sesion.usuario,
@@ -47,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           dispatch({ type: 'BOOTSTRAP_SIN_SESION' });
         }
       } catch {
+        logger.warn('No se pudo rehidratar la sesión al abrir la app');
         dispatch({ type: 'BOOTSTRAP_SIN_SESION' });
       }
     })();
@@ -60,6 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshToken: respuesta.refreshToken,
       usuario: respuesta.usuario,
     });
+    // usuario.id, nunca username/correo: es el identificador interno que
+    // también se usa para Sentry.setUser (ver src/config/monitoring.ts).
+    logger.info('Sesión iniciada', { usuarioId: respuesta.usuario.id });
+    marcarUsuarioEnSentry(respuesta.usuario);
     dispatch({
       type: 'SESION_INICIADA',
       usuario: respuesta.usuario,
@@ -76,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await tokenStorage.borrarSesion();
     await wipeLocalDatabase();
     setSession({ accessToken: null, refreshToken: null });
+    Sentry.setUser(null);
     dispatch({ type: 'SESION_CERRADA' });
   }, [state.usuario]);
 

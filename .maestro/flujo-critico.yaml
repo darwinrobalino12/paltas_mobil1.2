@@ -1,0 +1,62 @@
+# Prueba E2E única (punto 9 del enunciado de la Semana 15), sobre el
+# recorrido crítico del proyecto: login → crear un punto de interés sin
+# conexión → verificar que queda pendiente → reconectar → verificar que se
+# sincronizó solo. Es el mismo escenario que ya describe a mano
+# docs/evidencias-checklist.md §2 ("Prueba en modo avión").
+#
+# NO se ejecutó todavía en esta sesión: requiere un Android físico (el
+# teléfono del usuario es iOS) y Maestro instalado (https://maestro.mobi/).
+# Queda preparado para la próxima sesión con el compañero.
+#
+# Precondiciones antes de correrla:
+#   1. La app (app-release.apk de la Semana 14, o una build más nueva) ya
+#      instalada en el dispositivo.
+#   2. Docker + backend (`npm run dev`) + túnel de ngrok corriendo en la PC,
+#      con src/config/api.ts apuntando a la URL de ngrok vigente.
+#   3. Ajustar CATEGORIA_DE_PRUEBA más abajo si las categorías sembradas en
+#      el backend no incluyen "Natural".
+#
+# Cómo correrla: `maestro test .maestro/flujo-critico.yaml`
+
+appId: com.appmovilpaltas
+---
+- launchApp
+
+# El catálogo es público; "Agregar punto de interés" exige rol admin y
+# dispara la redirección de RequireAuth hacia Login (ver navigation/RequireAuth.tsx).
+- tapOn: "+ Agregar punto de interés"
+
+- tapOn:
+    text: "petri"
+- inputText: "petri"
+- tapOn:
+    text: "••••••••"
+- inputText: "password123"
+- tapOn: "Ingresar"
+
+# Tras el login, RequireAuth ya debería haber devuelto al usuario directo a
+# CrearPunto (destino pendiente guardado antes de la redirección).
+- assertVisible: "Nuevo punto de interés"
+
+# Modo avión: simula la prueba manual de docs/evidencias-checklist.md §2.
+- toggleAirplaneMode
+
+- tapOn:
+    text: "Ej. Mirador El Shiriculapo"
+- inputText: "Prueba E2E Maestro"
+- tapOn:
+    text: "Describe brevemente el lugar"
+- inputText: "Punto creado por la prueba de extremo a extremo."
+- tapOn: "Natural" # CATEGORIA_DE_PRUEBA — ajustar si no existe en el backend
+- tapOn: "Guardar punto de interés"
+- assertVisible: "Sin conexión: el punto se guardó localmente y se enviará automáticamente al reconectar."
+
+- tapOn: "Perfil"
+- assertVisible: "Operaciones pendientes de sincronizar: 1"
+
+# Reconecta y confirma que el outbox se vació solo (useNetworkSync.ts sincroniza
+# automáticamente al detectar la reconexión, sin que el usuario haga nada más).
+- toggleAirplaneMode
+- extendedWaitUntil:
+    visible: "Operaciones pendientes de sincronizar: 0"
+    timeout: 15000

@@ -18,6 +18,10 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="true"
       android:supportsRtl="true">
+      <!-- Semana 15: habilita el profiler de Android Studio también en un build
+           real (no debuggable) de un dispositivo físico. No cambia el
+           comportamiento de la app — solo permite conectar el profiler. -->
+      <profileable android:shell="true" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

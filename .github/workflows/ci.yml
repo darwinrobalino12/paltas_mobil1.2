@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Lint, type-check y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Chequeo de tipos
+        run: npx tsc --noEmit
+
+      # Punto 14 del enunciado: ninguna prueba de la batería puede estar
+      # desactivada. Se verifica acá para que no pueda colarse en silencio.
+      - name: Confirmar que no hay pruebas desactivadas
+        run: |
+          if grep -rnE "\.(skip|only|todo)\(|xit\(|xdescribe\(" src __tests__; then
+            echo "Hay pruebas desactivadas (.skip/.only/.todo/xit/xdescribe) — sacalas antes de mergear."
+            exit 1
+          fi
+
+      # Solo nivel JS: no compila Android/iOS, no hace falta para validar esta
+      # batería de pruebas y sería mucho más lento (y requeriría el SDK de
+      # Android/Xcode en el runner).
+      - name: Pruebas con cobertura
+        run: npx jest --ci --coverage
+
+      - name: Subir reporte de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/

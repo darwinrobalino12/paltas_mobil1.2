@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { theme } from '../theme';
 import { AppButton } from '../components/AppButton';
 import { useAuth } from '../context/AuthContext';
@@ -97,6 +98,13 @@ function PerfilContenido() {
       {diagnostico.status === 'loading' && <Text style={styles.dato}>Probando...</Text>}
       {diagnostico.status === 'success' && <Text style={styles.exito}>{diagnostico.data.mensaje}</Text>}
       {diagnostico.status === 'error' && <Text style={styles.error}>{diagnostico.error}</Text>}
+
+      {__DEV__ && (
+        <AppButton
+          title="Provocar fallo de prueba (Sentry)"
+          onPress={() => Sentry.captureException(new Error('Fallo de prueba manual — verificación item 23'))}
+        />
+      )}
 
       <AppButton title="Cerrar sesión" onPress={logout} />
     </View>
