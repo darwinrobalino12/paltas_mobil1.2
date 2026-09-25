@@ -4,23 +4,32 @@
 # sincronizó solo. Es el mismo escenario que ya describe a mano
 # docs/evidencias-checklist.md §2 ("Prueba en modo avión").
 #
-# NO se ejecutó todavía en esta sesión: requiere un Android físico (el
-# teléfono del usuario es iOS) y Maestro instalado (https://maestro.mobi/).
-# Queda preparado para la próxima sesión con el compañero.
-#
 # Precondiciones antes de correrla:
-#   1. La app (app-release.apk de la Semana 14, o una build más nueva) ya
-#      instalada en el dispositivo.
+#   1. La app (el .apk de release ya instalado) en el dispositivo.
 #   2. Docker + backend (`npm run dev`) + túnel de ngrok corriendo en la PC,
 #      con src/config/api.ts apuntando a la URL de ngrok vigente.
 #   3. Ajustar CATEGORIA_DE_PRUEBA más abajo si las categorías sembradas en
 #      el backend no incluyen "Natural".
 #
 # Cómo correrla: `maestro test .maestro/flujo-critico.yaml`
+#
+# Nota sobre "toggleAirplaneMode": en varios Android (10+), activar el modo
+# avión por ADB no siempre corta la conectividad real al instante ni avisa
+# de inmediato a NetInfo dentro de la app — puede tardar uno o dos segundos.
+# Por eso, después de cada toggle, la prueba espera explícitamente antes de
+# depender de que la app ya se sepa "sin conexión" (o "reconectada"). Si esto
+# sigue fallando en un dispositivo puntual, es un tema del propio modo avión
+# de ese equipo, no del código de la app — confirmar a mano que el ícono de
+# señal/wifi realmente desaparece al activar el modo avión.
 
 appId: com.appmovilpaltas
 ---
-- launchApp
+# clearState arranca la app 100% limpia en cada corrida (sin sesión iniciada
+# ni texto de una corrida anterior a medio llenar) — sin esto, una corrida
+# fallida deja basura que hace fallar (o "escribir en cualquier lado") la
+# siguiente corrida.
+- launchApp:
+    clearState: true
 
 # El catálogo es público; "Agregar punto de interés" exige rol admin y
 # dispara la redirección de RequireAuth hacia Login (ver navigation/RequireAuth.tsx).
@@ -32,6 +41,7 @@ appId: com.appmovilpaltas
 - tapOn:
     text: "••••••••"
 - inputText: "password123"
+- hideKeyboard
 - tapOn: "Ingresar"
 
 # Tras el login, RequireAuth ya debería haber devuelto al usuario directo a
@@ -40,6 +50,12 @@ appId: com.appmovilpaltas
 
 # Modo avión: simula la prueba manual de docs/evidencias-checklist.md §2.
 - toggleAirplaneMode
+# Pausa real (no solo un chequeo instantáneo): reintenta esta aserción, ya
+# verdadera, durante hasta 5s — le da tiempo al sistema/NetInfo a asentarse
+# antes de seguir, en vez de asumir que la desconexión ya se aplicó.
+- extendedWaitUntil:
+    visible: "Nuevo punto de interés"
+    timeout: 5000
 
 - tapOn:
     text: "Ej. Mirador El Shiriculapo"
@@ -47,9 +63,12 @@ appId: com.appmovilpaltas
 - tapOn:
     text: "Describe brevemente el lugar"
 - inputText: "Punto creado por la prueba de extremo a extremo."
+- hideKeyboard
 - tapOn: "Natural" # CATEGORIA_DE_PRUEBA — ajustar si no existe en el backend
 - tapOn: "Guardar punto de interés"
-- assertVisible: "Sin conexión: el punto se guardó localmente y se enviará automáticamente al reconectar."
+- extendedWaitUntil:
+    visible: "Sin conexión: el punto se guardó localmente y se enviará automáticamente al reconectar."
+    timeout: 10000
 
 - tapOn: "Perfil"
 - assertVisible: "Operaciones pendientes de sincronizar: 1"
@@ -59,4 +78,4 @@ appId: com.appmovilpaltas
 - toggleAirplaneMode
 - extendedWaitUntil:
     visible: "Operaciones pendientes de sincronizar: 0"
-    timeout: 15000
+    timeout: 20000
